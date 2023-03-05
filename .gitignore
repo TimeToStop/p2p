@@ -1,0 +1,5 @@
+*.txt
+*.opam
+
+_build/**
+.vscode/**
