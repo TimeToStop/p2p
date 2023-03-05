@@ -1,0 +1,13 @@
+lib: [
+  "_build/install/default/lib/p2p/META"
+  "_build/install/default/lib/p2p/dune-package"
+  "_build/install/default/lib/p2p/opam"
+]
+bin: [
+  "_build/install/default/bin/client.exe"
+  "_build/install/default/bin/server.exe"
+]
+doc: [
+  "_build/install/default/doc/p2p/LICENSE"
+  "_build/install/default/doc/p2p/README.MD"
+]
