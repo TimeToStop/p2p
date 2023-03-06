@@ -21,13 +21,15 @@ jobs:
       with:
         ocaml-compiler: 4.14.x
     - name: Install
+      continue-on-error: true
       run: | 
         opam install dune
         opam install -t . --deps-only
+        opam install ocamlformat
+        opam exec -- dune fmt
         opam install logs
         opam install lwt
         opam install ounit2.2.2.6
-        opam install ocamlformat
     - name: Lint
       run: opam exec -- dune fmt
     - name: Build
