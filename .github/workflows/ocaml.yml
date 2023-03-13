@@ -30,11 +30,11 @@ jobs:
         opam install ounit2.2.2.6
     - name: Lint
       run: |
-      ocamlformat ./bin/client.ml > temp
-      diff ./bin/client.ml temp
-      ocamlformat ./bin/server.ml > temp
-      diff ./bin/server.ml temp
-      rm temp
+        ocamlformat ./bin/client.ml -o temp
+        diff ./bin/client.ml temp
+        ocamlformat ./bin/server.ml -o temp
+        diff ./bin/server.ml temp
+        rm temp
     - name: Build
       run: opam exec -- dune build
     - name: Test
