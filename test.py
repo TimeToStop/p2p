@@ -1,13 +1,14 @@
 import subprocess
 import time
 import re
-import socket
+
 
 
 SERVER_CMD = ["opam", "exec", "--", "dune", "exec", "server"]
-CLIENT_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9010", "d", "127.0.0.1", "9002"]
-CLIENT1_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9011", "d", "127.0.0.1", "9002"]
-
+CLIENT_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9000", "d", "127.0.0.1", "9002"]
+CLIENT1_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9001", "d", "127.0.0.1", "9002"]
+CLIENT2_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9010", "d", "127.0.0.1", "9002"]
+CLIENT3_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9011", "d", "127.0.0.1", "9002"]
 
 def send_message(client, message):
     client.stdin.write('{}\n'.format(message).encode())
@@ -20,6 +21,7 @@ def close_client(client):
     time.sleep(0.1)
     client.kill()
     time.sleep(0.1)
+    client.wait()
 
 def get_info(client):
     while True:
@@ -29,6 +31,19 @@ def get_info(client):
 
         print(line)
         print("\n" + "---------------------------" + "\n")
+
+def get_port_client_close(client):
+    ports = []
+    while True:
+        line = client.stderr.readline()
+        if not line:
+            break
+
+        match = re.search(rb"server: \[INFO\] request=close 127\.0\.0\.1 (\d+) response=", line)
+        if match:
+            port = match.group(1).decode()
+            ports.append(port)
+    return ports
 
 def find_ports(server):
     ports = []
@@ -103,11 +118,11 @@ def test_chat():
     time.sleep(3)
     assert server_proc.poll() is None
 
-    client1_proc = subprocess.Popen(CLIENT_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    client1_proc = subprocess.Popen(CLIENT2_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client1_proc.poll() is None
 
-    client2_proc = subprocess.Popen(CLIENT1_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    client2_proc = subprocess.Popen(CLIENT3_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client2_proc.poll() is None
 
@@ -137,7 +152,7 @@ def test_disconnect():
     time.sleep(3)
     assert servr_proc.poll() is None
 
-    client_proc = subprocess.Popen(CLIENT_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    client_proc = subprocess.Popen(CLIENT2_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client_proc.poll() is None
 
@@ -145,9 +160,8 @@ def test_disconnect():
 
     servr_proc.kill()
 
-    get_info(client_proc)
-    get_info(servr_proc)
-
+    port = get_port_client_close(servr_proc)
+    assert port[0] == client_proc.args[6]
     print("Test disconnect peer passed")
 
 
@@ -157,7 +171,7 @@ def test_history():
     time.sleep(3)
     assert server_proc.poll() is None
 
-    client1_proc = subprocess.Popen(CLIENT_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    client1_proc = subprocess.Popen(CLIENT2_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client1_proc.poll() is None
 
@@ -165,7 +179,7 @@ def test_history():
     send_message(client1_proc, "Did you catch the game last night?")
     send_message(client1_proc, "It was crazy! We won in overtime. Bye!")
 
-    client2_proc = subprocess.Popen(CLIENT1_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    client2_proc = subprocess.Popen(CLIENT3_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client2_proc.poll() is None
 
@@ -178,19 +192,14 @@ def test_history():
     assert k1 == 3
 
     print("Test history passed")
-test_history()
-test_chat()
-test_join_peer()
 
 
 def main():
     test_join_peer()
-    time.sleep(1)
-    test_chat()
-    time.sleep(1)
     test_disconnect()
-    time.sleep(1)
+    test_chat()
     test_history()
+
 
 if __name__ == "__main__":
     main()
