@@ -8,37 +8,41 @@ let backlog = 10
 
 let peers = ref []
 
-let add_to_peers peers = function
-  | fd, addr, port ->
-      peers
-      |> List.filter (fun (_, a, ip) -> addr ^ ":" ^ port <> a ^ ":" ^ ip)
-      |> List.append [(fd, addr, port)]
+let add_to_peers (fd, addr, port) =
+  peers :=
+    List.filter (fun (_, a, ip) -> addr ^ ":" ^ port <> a ^ ":" ^ ip) !peers
+    |> List.append [(fd, addr, port)]
 
 let remove_from_peers prs addr port =
-  prs |> List.filter (fun (_, a, ip) -> addr ^ ":" ^ port <> a ^ ":" ^ ip)
+  peers :=
+    List.filter (fun (_, a, ip) -> addr ^ ":" ^ port <> a ^ ":" ^ ip) prs
 
 let rec peers_as_string = function
   | [] -> "\n"
   | (_, host, port) :: rest -> host ^ ":" ^ port ^ " " ^ peers_as_string rest
 
+let join_peer fd host port =
+  add_to_peers (fd, host, port) ;
+  peers_as_string
+    (List.filter
+       (fun (_, x_host, x_port) -> x_host ^ ":" ^ x_port <> host ^ ":" ^ port)
+       !peers )
+
+let close_peer host port =
+  remove_from_peers !peers host port ;
+  "exit"
+
+let handle_unknown_command () = "Unknown command"
+
 let handle_message fd msg =
   match Str.split (Str.regexp "[ \t\n\r\x0c]+") msg with
-  | ["join"; host; port] ->
-      peers := add_to_peers !peers (fd, host, port) ;
-      peers_as_string
-        (List.filter
-           (fun (_, x_host, x_port) ->
-             x_host ^ ":" ^ x_port <> host ^ ":" ^ port )
-           !peers )
-  | ["close"; host; port] ->
-      peers := remove_from_peers !peers host port ;
-      "exit"
-  | _ -> "Unknown command"
+  | ["join"; host; port] -> join_peer fd host port
+  | ["close"; host; port] -> close_peer host port
+  | _ -> handle_unknown_command ()
 
 let rec handle_connection fd ic oc () =
   Lwt_io.read_line_opt ic
-  >>= fun msg ->
-  match msg with
+  >>= function
   | Some msg ->
       let reply = handle_message fd msg in
       Logs_lwt.info (fun m -> m "request=%s response=%s " msg reply)
@@ -72,8 +76,8 @@ let create_server sock =
   serve
 
 let () =
-  let () = Logs.set_reporter (Logs.format_reporter ()) in
-  let () = Logs.set_level (Some Logs.Info) in
+  Logs.set_reporter (Logs.format_reporter ()) ;
+  Logs.set_level (Some Logs.Info) ;
   let sock = create_server_socket () in
   let serve = create_server sock in
   Lwt_main.run (serve ())
