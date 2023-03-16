@@ -1,12 +1,12 @@
 import subprocess
 import time
 import re
-
+import socket
 
 
 SERVER_CMD = ["opam", "exec", "--", "dune", "exec", "server"]
-CLIENT_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9000", "d", "127.0.0.1", "9002"]
-CLIENT1_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9001", "d", "127.0.0.1", "9002"]
+CLIENT_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9010", "d", "127.0.0.1", "9002"]
+CLIENT1_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9011", "d", "127.0.0.1", "9002"]
 
 
 def send_message(client, message):
@@ -19,6 +19,7 @@ def close_client(client):
     client.stdin.flush()
     time.sleep(0.1)
     client.kill()
+    time.sleep(0.1)
 
 def get_info(client):
     while True:
@@ -36,8 +37,7 @@ def find_ports(server):
         if not line:
             break
 
-        # Используйте регулярное выражение, чтобы найти строки, содержащие нужную подстроку
-        match = re.search(rb"server: \[INFO\] request=msg 127\.0\.0\.1 (\d+) response=accept", line)
+        match = re.search(rb"server: \[INFO\] request=join 127\.0\.0\.1 (\d+) response=", line)
         if match:
             port = match.group(1).decode()
             ports.append(port)
@@ -50,7 +50,6 @@ def check_msg(client):
         if not line:
             break
 
-        # Используйте регулярное выражение, чтобы найти строки, содержащие нужную подстроку
         match = re.search(rb"response=accepted", line)
         if match:
             k += 1
@@ -63,7 +62,6 @@ def check_history(client):
         if not line:
             break
 
-        # Используйте регулярное выражение, чтобы найти строки, содержащие нужную подстроку
         match = re.search(rb"username:", line)
         if match:
             k += 1
@@ -71,17 +69,14 @@ def check_history(client):
 
 def test_join_peer():
     # запускаем сервер и два экземпляра клиентского приложения
-    print("Start server")
     servr_proc = subprocess.Popen(SERVER_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert servr_proc.poll() is None
 
-    print("Start client 1")
     client1_proc = subprocess.Popen(CLIENT_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client1_proc.poll() is None
 
-    print("Start client 2")
     client2_proc = subprocess.Popen(CLIENT1_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client2_proc.poll() is None
@@ -92,35 +87,31 @@ def test_join_peer():
 
     servr_proc.kill()
 
-    get_info(client1_proc)
-    get_info(client2_proc)
+    # get_info(client1_proc)
+    # get_info(client2_proc)
 
     ports = find_ports(servr_proc)
     assert ports[0] == client1_proc.args[6]
     assert ports[1] == client2_proc.args[6]
 
-    print("Test passed")
+    print("Test join peer passed")
 
 
 def test_chat():
     # запускаем сервер и два экземпляра клиентского приложения
-    print("Start server")
     server_proc = subprocess.Popen(SERVER_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert server_proc.poll() is None
 
-    print("Start client 1")
     client1_proc = subprocess.Popen(CLIENT_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client1_proc.poll() is None
 
-    print("Start client 2")
     client2_proc = subprocess.Popen(CLIENT1_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client2_proc.poll() is None
 
 
-    # Send messages between clients
     send_message(client1_proc, "Hello, client2!")
     send_message(client2_proc, "Hello, client1!")
     send_message(client1_proc, "Did you catch the game last night?")
@@ -137,51 +128,43 @@ def test_chat():
 
     assert k1 == 3
     assert k2 == 3
+    print("Test chat passed")
 
-test_chat()
 
 def test_disconnect():
     # запускаем сервер и клиентский процесс
-    print("Start server")
     servr_proc = subprocess.Popen(SERVER_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert servr_proc.poll() is None
 
-    print("Start client")
     client_proc = subprocess.Popen(CLIENT_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client_proc.poll() is None
 
-    # отключаем клиента
     close_client(client_proc)
-
-    # проверяем, что клиент отключен и больше не отображается в списке активных клиентов
-    # assert "Active clients: 0" in servr_proc.stdout.readline().decode()
 
     servr_proc.kill()
 
     get_info(client_proc)
     get_info(servr_proc)
 
+    print("Test disconnect peer passed")
+
 
 def test_history():
     # запускаем сервер и два экземпляра клиентского приложения
-    print("Start server")
     server_proc = subprocess.Popen(SERVER_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert server_proc.poll() is None
 
-    print("Start client 1")
     client1_proc = subprocess.Popen(CLIENT_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client1_proc.poll() is None
 
-    # Send messages between clients
     send_message(client1_proc, "Hello, client2!")
     send_message(client1_proc, "Did you catch the game last night?")
     send_message(client1_proc, "It was crazy! We won in overtime. Bye!")
 
-    print("Start client 2")
     client2_proc = subprocess.Popen(CLIENT1_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(3)
     assert client2_proc.poll() is None
@@ -194,5 +177,20 @@ def test_history():
 
     assert k1 == 3
 
+    print("Test history passed")
 test_history()
+test_chat()
+test_join_peer()
 
+
+def main():
+    test_join_peer()
+    time.sleep(1)
+    test_chat()
+    time.sleep(1)
+    test_disconnect()
+    time.sleep(1)
+    test_history()
+
+if __name__ == "__main__":
+    main()
