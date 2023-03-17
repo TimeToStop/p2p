@@ -17,6 +17,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@master
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
     - uses: ocaml/setup-ocaml@v2
       with:
         ocaml-compiler: 4.14.x
@@ -38,4 +41,5 @@ jobs:
     - name: Build
       run: opam exec -- dune build
     - name: Test
-      run: opam exec -- dune runtest
+      run: python test.py
+
