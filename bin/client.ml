@@ -1,8 +1,6 @@
 open Lwt
 
 module Constants = struct
-  let timeout = 1.
-
   let listen_address = Unix.inet_addr_loopback
 
   let backlog_size = 10
@@ -39,15 +37,13 @@ let recieve_response_from_peer fd =
   let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd in
   Lwt_io.read_line_opt ic
   >>= function
-  | None -> failwith "expected response"
-  | Some response -> Lwt.return response
+  | None -> failwith "expected response" | Some response -> Lwt.return response
 
 let connect_to_peer_on_join hostname port =
   let addr = Unix.inet_addr_of_string hostname in
   let iport = int_of_string port in
   let sockaddr = Unix.ADDR_INET (addr, iport) in
   let socket = Lwt_unix.socket PF_INET SOCK_STREAM 0 in
-  Lwt_unix.setsockopt_float socket SO_RCVTIMEO Constants.timeout ;
   Lwt_unix.connect socket sockaddr
   >>= fun () ->
   let peer = (socket, hostname, port) in
@@ -59,7 +55,6 @@ let connect_to_rest_peer_impl hostname port =
   let iport = int_of_string port in
   let sockaddr = Unix.ADDR_INET (addr, iport) in
   let socket = Lwt_unix.socket PF_INET SOCK_STREAM 0 in
-  Lwt_unix.setsockopt_float socket SO_RCVTIMEO Constants.timeout ;
   Lwt_unix.connect socket sockaddr
   >>= fun () ->
   Lwt.return (peers := add_peer !peers (socket, hostname, port))
@@ -79,9 +74,7 @@ let connect_to_peer host port =
   let iport = int_of_string port in
   let sockaddr = Unix.ADDR_INET (addr, iport) in
   let socket = Lwt_unix.socket PF_INET SOCK_STREAM 0 in
-  Lwt_unix.setsockopt_float socket SO_RCVTIMEO Constants.timeout ;
-  Lwt_unix.connect socket sockaddr
-  >>= fun () -> Lwt.return (socket, host, port)
+  Lwt_unix.connect socket sockaddr >>= fun () -> Lwt.return (socket, host, port)
 
 let handle_join_response response =
   let peers = Str.split (Str.regexp "[ \t\n\r\x0c]+") response in
@@ -167,8 +160,7 @@ let close_peer peer =
   let fd, _, _ = peer in
   let packet = "close " ^ "127.0.0.1 " ^ Sys.argv.(1) in
   let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
-  Lwt_io.write_line oc packet
-  >>= fun () -> Lwt_io.flush oc >>= fun () -> exit 0
+  Lwt_io.write_line oc packet >>= fun () -> Lwt_io.flush oc >>= fun () -> exit 0
 
 let rec close_peers = function
   | [] -> Lwt.return_unit
@@ -214,8 +206,7 @@ let handle_message fd msg =
         add_message_to_history
           ("[" ^ host ^ ":" ^ port ^ "] " ^ username ^ ": " ^ text)
           !history ;
-      Logs_lwt.info (fun m -> m "%s" text)
-      >>= fun () -> Lwt.return "accepted"
+      Logs_lwt.info (fun m -> m "%s" text) >>= fun () -> Lwt.return "accepted"
   | "history" :: [] -> Lwt.return (history_as_string !history)
   | ["close"; host; port] ->
       peers := remove_from_peers !peers host port ;
@@ -245,15 +236,13 @@ let accept_connection conn =
 
 let create_server_socket port =
   let sock = Lwt_unix.socket PF_INET SOCK_STREAM 0 in
-  Lwt_unix.setsockopt_float sock SO_RCVTIMEO Constants.timeout ;
   Lwt_main.run
     ( Logs_lwt.info (fun m ->
           m "Starting on host = %s ; port = %d"
             (Unix.string_of_inet_addr Constants.listen_address)
             port )
     >>= return ) ;
-  Lwt_main.run
-    (Lwt_unix.bind sock (ADDR_INET (Constants.listen_address, port))) ;
+  Lwt_main.run (Lwt_unix.bind sock (ADDR_INET (Constants.listen_address, port))) ;
   Lwt_unix.listen sock Constants.backlog_size ;
   sock
 
