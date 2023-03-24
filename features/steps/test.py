@@ -17,8 +17,8 @@ from test_code import (
 @given("a running server and two clients")
 def step_given_server_two_clients(context):
     context.server_proc = start_server()
-    context.client1_proc = start_client1()
-    context.client2_proc = start_client2()
+    context.client1_proc = start_client3()
+    context.client2_proc = start_client4()
 
 @when("the clients connect to the server")
 def step_when_clients_connect(context):
@@ -30,7 +30,7 @@ def step_when_clients_connect(context):
 def step_then_server_recognize_clients(context):
     close_client(context.client1_proc)
     close_client(context.client2_proc)
-    context.server_proc.terminate()
+    context.server_proc.kill()
 
     ports = find_ports(context.server_proc)
     assert ports[0] == context.client1_proc.args[6]
@@ -50,7 +50,7 @@ def step_when_clients_exchange_messages(context):
 def step_then_clients_receive_messages(context):
     close_client(context.client1_proc)
     close_client(context.client2_proc)
-    context.server_proc.terminate()
+    context.server_proc.kill()
     k1 = check_msg(context.client1_proc)
     k2 = check_msg(context.client2_proc)
     assert k1 == 3
@@ -67,7 +67,7 @@ def step_when_client_disconnects(context):
 
 @then("the server should recognize the disconnected client")
 def step_then_server_recognize_disconnected_client(context):
-    context.server_proc.terminate()
+    context.server_proc.kill()
     port = get_port_client_close(context.server_proc)
     assert port[0] == context.client_proc.args[6]
 
@@ -87,6 +87,6 @@ def step_when_another_client_connects(context):
 def step_then_new_client_receive_message_history(context):
     close_client(context.client1_proc)
     close_client(context.client2_proc)
-    context.server_proc.terminate()
+    context.server_proc.kill()
     k1 = check_history(context.client2_proc)
     assert k1 == 3
