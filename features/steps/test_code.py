@@ -3,10 +3,10 @@ import time
 import re
 
 SERVER_CMD = ["opam", "exec", "--", "dune", "exec", "server"]
-CLIENT_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9000", "d", "127.0.0.1", "9002"]
-CLIENT1_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9001", "d", "127.0.0.1", "9002"]
-CLIENT2_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9010", "d", "127.0.0.1", "9002"]
-CLIENT3_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9011", "d", "127.0.0.1", "9002"]
+CLIENT_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9020", "d", "127.0.0.1", "9002"]
+CLIENT1_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9021", "d", "127.0.0.1", "9002"]
+CLIENT2_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9030", "d", "127.0.0.1", "9002"]
+CLIENT3_CMD = ["opam", "exec", "--", "dune", "exec", "client", "9031", "d", "127.0.0.1", "9002"]
 
 def start_server():
     server_proc = subprocess.Popen(SERVER_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -69,7 +69,7 @@ def get_port_client_close(client):
         if not line:
             break
 
-        match = re.search(rb"close 127.0.0.1:(\d+)", line)
+        match = re.search(rb"close 127.0.0.1 (\d+)", line)
         if match:
             port = match.group(1).decode()
             ports.append(port)
@@ -82,7 +82,7 @@ def check_msg(client1):
         if not line:
             break
 
-        match = re.search(rb"msg \[\d+\.\d+\.\d+\.\d+:\d+\]:", line)
+        match = re.search(rb"msg 127.0.0.1 (\d+) ", line)
         if match:
             k += 1
     return k
@@ -94,7 +94,7 @@ def check_history(client):
         if not line:
             break
 
-        match = re.search(rb"client: \[INFO\] \d+:\d+:\d+ \[\d+\.\d+\.\d+\.\d+:\d+\]:", line)
+        match = re.search(rb"client: \[INFO\] \d+:\d+:\d+ 127.0.0.1 (\d+)", line)
         if match:
             k += 1
     return k
