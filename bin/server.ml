@@ -1,48 +1,14 @@
 open Lwt
+open Types
+open Utils
 
-type peer_t = Lwt_unix.file_descr * Unix.inet_addr * int
+let listen_address : Unix.inet_addr = Unix.inet_addr_loopback
 
-type request_t = Join of peer_t | Close of peer_t | Unknown of string
+let port : int = 9002
 
-type response_t = OnJoin of peer_t list | OnClose | OnUnknown of string
+let backlog : int = 10
 
-type 'a maybe_t = Value of 'a | Error of string
-
-let listen_address = Unix.inet_addr_loopback
-
-let port = 9002
-
-let backlog = 10
-
-let peers = ref []
-
-let inet_addr_of_string (str : string) : Unix.inet_addr maybe_t =
-  try Value (Unix.inet_addr_of_string str) with Failure msg -> Error msg
-
-let port_of (str : string) : int maybe_t =
-  let get_int (x : string) =
-    try Value (int_of_string x) with Failure msg -> Error msg
-  in
-  let result = get_int str in
-  match result with
-  | Value x when 0 < x && x < 65536 -> result
-  | Value _ -> Error "port is out of bounds"
-  | Error _ -> result
-
-let timestamp () =
-  let current_time = Unix.localtime (Unix.time ()) in
-  let hour = current_time.tm_hour in
-  let minute = current_time.tm_min in
-  let second = current_time.tm_sec in
-  Printf.sprintf "%02d:%02d:%02d" hour minute second
-
-let is_same_origin (a : peer_t) (b : peer_t) : bool =
-  let _, addr_a, port_a = a in
-  let _, addr_b, port_b = b in
-  addr_a = addr_b && port_a = port_b
-
-let peer_to_string : peer_t -> string = function
-  | _, addr, port -> Unix.string_of_inet_addr addr ^ ":" ^ string_of_int port
+let peers : peer_t list ref = ref []
 
 let add_to_peers (peer : peer_t) : unit =
   peers :=
@@ -52,57 +18,25 @@ let add_to_peers (peer : peer_t) : unit =
 let remove_from_peers (peer : peer_t) : unit =
   peers := List.filter (fun x -> not (is_same_origin x peer)) !peers
 
-let rec peers_as_string : peer_t list -> string = function
-  | [] -> "\n"
-  | peer :: rest -> peer_to_string peer ^ " " ^ peers_as_string rest
-
-let parse_host_port (host : string) (port : string) :
-    (Unix.inet_addr * int) maybe_t =
-  match (inet_addr_of_string host, port_of port) with
-  | Error host_err, _ -> Error host_err
-  | Value _, Error port_err -> Error port_err
-  | Value host_addr, Value port_num -> Value (host_addr, port_num)
-
-let parse_join_request (fd : Lwt_unix.file_descr) (words : string list) :
-    request_t =
-  let helper (host : string) (port : string) : request_t =
-    match parse_host_port host port with
-    | Value (addr, port_num) -> Join (fd, addr, port_num)
-    | Error msg -> Unknown msg
-  in
-  match words with
-  | [_; host; port] -> helper host port
-  | _ -> Unknown "\"join\" requires: ip port"
-
-let parse_close_request (fd : Lwt_unix.file_descr) (words : string list) :
-    request_t =
-  let helper (host : string) (port : string) : request_t =
-    match parse_host_port host port with
-    | Value (addr, port_num) -> Close (fd, addr, port_num)
-    | Error msg -> Unknown msg
-  in
-  match words with
-  | [_; host; port] -> helper host port
-  | _ -> Unknown "\"close\" requires: ip port"
-
-let parse_request (fd : Lwt_unix.file_descr) (request : string) : request_t =
+let parse_request (fd : Lwt_unix.file_descr) (request : string) :
+    discovery_request_t =
   let words =
     Str.split (Str.regexp "[ \t\n\r\x0c]+") request
     |> List.filter (fun x -> x <> "")
   in
   match words with
-  | "join" :: _ -> parse_join_request fd words
-  | "close" :: _ -> parse_close_request fd words
+  | "join" :: _ -> parse_join_request_discovery fd words
+  | "close" :: _ -> parse_close_request_discovery fd words
   | _ -> Unknown "unknown command or empty"
 
-let execute_request : request_t -> response_t = function
+let execute_request : discovery_request_t -> discovery_response_t = function
   | Join peer ->
       add_to_peers peer ;
       OnJoin (List.filter (fun x -> not (is_same_origin x peer)) !peers)
   | Close peer -> remove_from_peers peer ; OnClose
   | Unknown error -> OnUnknown error
 
-let to_string : response_t -> string = function
+let to_string : discovery_response_t -> string = function
   | OnJoin peers -> peers_as_string peers
   | OnClose -> ""
   | OnUnknown error -> error

@@ -2,10 +2,10 @@
  (public_name client)
  (name client)
  (modules client)
- (libraries unix lwt lwt.unix logs logs.lwt str))
+ (libraries unix lwt lwt.unix logs logs.lwt str utils types))
 
 (executable
  (public_name server)
  (name server)
  (modules server)
- (libraries unix lwt lwt.unix logs logs.lwt str))
+ (libraries unix lwt lwt.unix logs logs.lwt str utils types))

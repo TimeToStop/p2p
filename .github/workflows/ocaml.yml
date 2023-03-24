@@ -31,15 +31,20 @@ jobs:
         opam install logs
         opam install lwt
         opam install ounit2.2.2.6
+        pip install behave
     - name: Lint
       run: |
         opam exec -- ocamlformat ./bin/client.ml -o temp
         diff ./bin/client.ml temp
         opam exec -- ocamlformat ./bin/server.ml -o temp
         diff ./bin/server.ml temp
+        opam exec -- ocamlformat ./lib/types.ml -o temp
+        diff ./lib/types.ml temp
+        opam exec -- ocamlformat ./lib/utils.ml -o temp
+        diff ./lib/utils.ml temp
         rm temp
     - name: Build
       run: opam exec -- dune build
     - name: Test
-      run: python test.py
+      run: behave features/test.feature
 
