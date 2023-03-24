@@ -4,5 +4,7 @@
 _build/**
 .vscode/**
 
+out/**
+
 .idea/**
 .DS_Store
